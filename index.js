@@ -33,101 +33,192 @@ const { chromium } = require("playwright");
     await page.goto(HOME_URL, { waitUntil: "networkidle" });
     await page.waitForTimeout(5000);
 
-    // === 查找并点击Manage按钮 ===
-    console.log("🔍 查找服务器卡片中的Manage按钮...");
-    const manageButton = await page.waitForSelector('div.server-card div.server-actions a.btn.btn-primary:has-text("Manage")');
-    
-    // 点击按钮并等待导航
-    await Promise.all([
-      manageButton.click(),
-      page.waitForNavigation({ waitUntil: "networkidle", timeout: 15000 })
-    ]);
-    
-    console.log("✅ 成功点击Manage按钮");
+    // === 获取所有服务器卡片 ===
+    console.log("🔍 查找所有服务器卡片...");
+    const manageButtons = await page.$$('div.server-card div.server-actions a.btn.btn-primary:has-text("Manage")');
+    const serverCount = manageButtons.length;
+    console.log(`找到 ${serverCount} 个服务器`);
 
-    // === 获取服务器状态和ID ===
-    console.log("📊 检查服务器状态...");
-    
-    let serverId, serverStatus;
-    
-    // 从URL中提取ID
-    const currentUrl = page.url();
-    const urlMatch = currentUrl.match(/[?&]id=([^&]+)/);
-    serverId = urlMatch ? urlMatch[1] : 'unknown';
-    
-    // 获取服务器状态
-    serverStatus = await page.$eval('span#server-status-detail', el => el.textContent.toLowerCase()).catch(() => 'unknown');
-    
-    console.log(`服务器ID: ${serverId}`);
-    console.log(`服务器状态: ${serverStatus}`);
-
-    // === 如果服务器离线则启动 ===
-    let serverStarted = false;
-    if (serverStatus.includes('offline') || serverStatus.includes('stopping') || serverStatus.includes('stop')) {
-      console.log("⚡ 服务器离线或停止中，尝试启动...");
-      
-      // 导航到控制台页面
-      const consoleUrl = `https://greathost.es/server-console.html?id=${serverId}`;
-      console.log("📄 导航到控制台页面:", consoleUrl);
-      await page.goto(consoleUrl, { waitUntil: "networkidle" });
-      
-      // 点击启动按钮
-      console.log("🖱️ 点击Start按钮...");
-      const startButton = await page.waitForSelector('button:has-text("Start")');
-      await startButton.click();
-      
-      // 等待服务器启动
-      console.log("⏳ 等待服务器启动...");
-      await page.waitForTimeout(5000);
-      
-      console.log("✅ 启动命令已发送");
-      serverStarted = true;
-    } else {
-      console.log("✅ 服务器已在运行状态");
+    if (serverCount === 0) {
+      console.log("⚠️ 未找到任何服务器");
+      await browser.close();
+      process.exit(1);
     }
 
-    // === 跳转到合约页面续期 ===
-    const contractUrl = `https://greathost.es/contracts/${serverId}`;
-    console.log("📄 打开合约续期页：", contractUrl);
-    await page.goto(contractUrl, { waitUntil: "networkidle" });
+    // 用于统计结果
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
 
-    // === 获取续期前的时间 ===
-    console.log("📊 检查续期前的累计时间...");
-    const beforeHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
-    console.log(`当前累计时间: ${beforeHours} 小时`);
+    // === 循环处理每个服务器 ===
+    for (let i = 0; i < serverCount; i++) {
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`处理第 ${i + 1}/${serverCount} 个服务器`);
+      console.log('='.repeat(60));
 
-    // === 点击续期按钮 ===
-    console.log("⚡ 尝试点击续期按钮...");
-    await page.click('button:has-text("续期"), button:has-text("Renew")');
-    console.log("✅ 成功点击续期按钮");
+      try {
+        // 重新回到dashboard获取最新的按钮列表
+        await page.goto(HOME_URL, { waitUntil: "networkidle" });
+        await page.waitForTimeout(3000);
 
-    // === 等待页面刷新并检查时间变化 ===
-    await page.waitForTimeout(3000);
+        const currentManageButtons = await page.$$('div.server-card div.server-actions a.btn.btn-primary:has-text("Manage")');
+        
+        if (i >= currentManageButtons.length) {
+          console.log(`⚠️ 第 ${i + 1} 个服务器按钮不存在，跳过`);
+          continue;
+        }
+
+        // 点击对应的Manage按钮
+        await Promise.all([
+          currentManageButtons[i].click(),
+          page.waitForNavigation({ waitUntil: "networkidle", timeout: 15000 })
+        ]);
+        
+        console.log("✅ 成功进入服务器管理页");
+
+        // === 获取服务器状态和ID ===
+        console.log("📊 检查服务器状态...");
+        
+        let serverId, serverStatus;
+        
+        // 从URL中提取ID
+        const currentUrl = page.url();
+        const urlMatch = currentUrl.match(/[?&]id=([^&]+)/);
+        serverId = urlMatch ? urlMatch[1] : 'unknown';
+        
+        // 获取服务器状态
+        serverStatus = await page.$eval('span#server-status-detail', el => el.textContent.toLowerCase()).catch(() => 'unknown');
+        
+        console.log(`服务器ID: ${serverId}`);
+        console.log(`服务器状态: ${serverStatus}`);
+
+        // === 如果服务器离线则启动 ===
+        let serverStarted = false;
+        if (serverStatus.includes('offline') || serverStatus.includes('stopping') || serverStatus.includes('stop')) {
+          console.log("⚡ 服务器离线或停止中，尝试启动...");
+          
+          // 导航到控制台页面
+          const consoleUrl = `https://greathost.es/server-console.html?id=${serverId}`;
+          console.log("📄 导航到控制台页面:", consoleUrl);
+          await page.goto(consoleUrl, { waitUntil: "networkidle" });
+          
+          // 点击启动按钮
+          console.log("🖱️ 点击Start按钮...");
+          const startButton = await page.waitForSelector('button:has-text("Start")');
+          await startButton.click();
+          
+          // 等待服务器启动
+          console.log("⏳ 等待服务器启动...");
+          await page.waitForTimeout(5000);
+          
+          console.log("✅ 启动命令已发送");
+          serverStarted = true;
+        } else {
+          console.log("✅ 服务器已在运行状态");
+        }
+
+        // === 跳转到合约页面续期 ===
+        const contractUrl = `https://greathost.es/contracts/${serverId}`;
+        console.log("📄 打开合约续期页：", contractUrl);
+        await page.goto(contractUrl, { waitUntil: "networkidle" });
+
+        // === 获取续期前的时间 ===
+        console.log("📊 检查续期前的累计时间...");
+        const beforeHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
+        console.log(`当前累计时间: ${beforeHours} 小时`);
+
+        // === 点击续期按钮 ===
+        console.log("⚡ 尝试点击续期按钮...");
+        await page.click('button:has-text("续期"), button:has-text("Renew")');
+        console.log("✅ 成功点击续期按钮");
+
+        // === 等待页面刷新并检查时间变化 ===
+        await page.waitForTimeout(3000);
+        
+        const afterHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
+        console.log(`续期后累计时间: ${afterHours} 小时`);
+
+        if (afterHours > beforeHours) {
+          console.log("🎉 续期成功！累计时间已增加");
+          console.log(`⏰ 续期前时间: ${beforeHours} 小时`);
+          console.log(`⏰ 续期后时间: ${afterHours} 小时`);
+          console.log(`🔄 增加时间: ${afterHours - beforeHours} 小时`);
+          console.log(`🚀 服务器状态: ${serverStarted ? '已启动' : '已在运行'}`);
+          
+          results.push({
+            index: i + 1,
+            serverId,
+            success: true,
+            beforeHours,
+            afterHours,
+            addedHours: afterHours - beforeHours,
+            serverStarted
+          });
+          successCount++;
+        } else {
+          console.log("⚠️ 续期可能失败，累计时间未增加");
+          console.log(`💡 提示: 累计时间未增加，可能还没到续期时间`);
+          
+          results.push({
+            index: i + 1,
+            serverId,
+            success: false,
+            beforeHours,
+            afterHours,
+            serverStarted
+          });
+          failCount++;
+        }
+
+      } catch (err) {
+        console.error(`❌ 处理第 ${i + 1} 个服务器时出错：`, err.message);
+        results.push({
+          index: i + 1,
+          serverId: 'unknown',
+          success: false,
+          error: err.message
+        });
+        failCount++;
+        
+        await page.screenshot({ path: `renew-error-server-${i + 1}.png` });
+      }
+    }
+
+    // === 输出汇总结果 ===
+    console.log(`\n${'='.repeat(60)}`);
+    console.log('📊 续期任务完成汇总');
+    console.log('='.repeat(60));
+    console.log(`总服务器数: ${serverCount}`);
+    console.log(`成功续期: ${successCount}`);
+    console.log(`失败/未到期: ${failCount}`);
+    console.log(`完成时间: ${new Date().toLocaleString('zh-CN')}`);
+    console.log('\n详细结果:');
     
-    const afterHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
-    console.log(`续期后累计时间: ${afterHours} 小时`);
+    results.forEach(result => {
+      console.log(`\n服务器 #${result.index} (ID: ${result.serverId})`);
+      if (result.success) {
+        console.log(`  ✅ 续期成功`);
+        console.log(`  ⏰ ${result.beforeHours}h → ${result.afterHours}h (+${result.addedHours}h)`);
+        console.log(`  🚀 ${result.serverStarted ? '已启动' : '已在运行'}`);
+      } else if (result.error) {
+        console.log(`  ❌ 处理出错: ${result.error}`);
+      } else {
+        console.log(`  ⚠️ 未续期 (当前: ${result.beforeHours}h)`);
+        console.log(`  💡 可能还没到续期时间`);
+      }
+    });
 
-    if (afterHours > beforeHours) {
-      console.log("🎉 续期成功！累计时间已增加");
-      console.log(`🆔 服务器ID: ${serverId}`);
-      console.log(`⏰ 续期前时间: ${beforeHours} 小时`);
-      console.log(`⏰ 续期后时间: ${afterHours} 小时`);
-      console.log(`🔄 增加时间: ${afterHours - beforeHours} 小时`);
-      console.log(`🚀 服务器状态: ${serverStarted ? '已启动' : '已在运行'}`);
-      console.log(`📅 续期时间: ${new Date().toLocaleString('zh-CN')}`);
-      
-      await browser.close();
+    await browser.close();
+    
+    // 根据结果设置退出码
+    if (successCount > 0) {
+      console.log("\n✅ 至少有一个服务器续期成功");
       process.exit(0);
-    } else {
-      console.error("⚠️ 续期可能失败，累计时间未增加");
-      console.log(`🆔 服务器ID: ${serverId}`);
-      console.log(`⏰ 当前时间: ${beforeHours} 小时`);
-      console.log(`📅 检查时间: ${new Date().toLocaleString('zh-CN')}`);
-      console.log(`💡 提示: 累计时间未增加，可能还没到续期时间`);
-      
-      await page.screenshot({ path: "renew-fail.png" });
-      await browser.close();
+    } else if (failCount === serverCount) {
+      console.log("\n⚠️ 所有服务器都未能续期");
       process.exit(3);
+    } else {
+      process.exit(0);
     }
 
   } catch (err) {
