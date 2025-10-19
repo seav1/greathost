@@ -36,11 +36,8 @@ const { chromium } = require("playwright");
     // === 获取所有服务器ID ===
     console.log("🔍 查找所有服务器...");
     
-    // 保存调试截图
-    await page.screenshot({ path: "contracts-debug.png", fullPage: true });
-    
     // 获取所有 View Details 链接
-    const viewDetailsLinks = await page.$$('a.btn-view[href*="/contracts/"]');
+    const viewDetailsLinks = await page.$('a.btn-view[href*="/contracts/"]');
     console.log(`找到 ${viewDetailsLinks.length} 个服务器`);
     
     if (viewDetailsLinks.length === 0) {
@@ -60,9 +57,6 @@ const { chromium } = require("playwright");
     }
     
     console.log(`提取到 ${serverIds.length} 个服务器ID`);
-    serverIds.forEach((id, index) => {
-      console.log(`  服务器 ${index + 1}: ${id}`);
-    });
 
     // 用于统计结果
     const results = [];
@@ -89,9 +83,8 @@ const { chromium } = require("playwright");
         let serverStatus = 'unknown';
         try {
           serverStatus = await page.$eval('span#server-status-detail', el => el.textContent.toLowerCase());
-          console.log(`服务器状态: ${serverStatus}`);
         } catch (e) {
-          console.log("无法获取服务器状态");
+          // 无法获取状态，继续
         }
 
         // 如果服务器离线则启动
@@ -106,10 +99,8 @@ const { chromium } = require("playwright");
             await page.waitForTimeout(5000);
             serverStarted = true;
           } catch (e) {
-            console.log("⚠️ 未找到启动按钮或服务器已在运行");
+            // 未找到启动按钮或服务器已在运行
           }
-        } else {
-          console.log("✅ 服务器已在运行状态");
         }
 
         // === 跳转到合约页面续期 ===
@@ -119,13 +110,12 @@ const { chromium } = require("playwright");
         await page.waitForTimeout(2000);
 
         // === 获取续期前的时间 ===
-        console.log("📊 检查续期前的累计时间...");
         let beforeHours = 0;
         try {
           beforeHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
           console.log(`当前累计时间: ${beforeHours} 小时`);
         } catch (e) {
-          console.log("⚠️ 无法获取累计时间，尝试继续续期");
+          // 无法获取累计时间，尝试继续续期
         }
 
         // === 点击续期按钮 ===
@@ -159,7 +149,7 @@ const { chromium } = require("playwright");
           afterHours = await page.$eval('#accumulated-time', el => parseInt(el.textContent));
           console.log(`续期后累计时间: ${afterHours} 小时`);
         } catch (e) {
-          console.log("⚠️ 无法获取续期后时间");
+          // 无法获取续期后时间
         }
 
         if (afterHours > beforeHours) {
