@@ -1,0 +1,12 @@
+{
+  "name": "greathost-renew",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "playwright": "^1.38.0",
+    "axios": "^1.12.1"
+  }
+}
