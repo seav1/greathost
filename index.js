@@ -36,8 +36,7 @@ const { chromium } = require("playwright");
     // === 获取所有服务器ID ===
     console.log("🔍 查找所有服务器...");
     
-    // 获取所有 View Details 链接
-    const viewDetailsLinks = await page.$('a.btn-view[href*="/contracts/"]');
+    const viewDetailsLinks = await page.$$('a.btn-view[href*="/contracts/"]');
     console.log(`找到 ${viewDetailsLinks.length} 个服务器`);
     
     if (viewDetailsLinks.length === 0) {
