@@ -33,11 +33,29 @@ const { chromium } = require("playwright");
     await page.goto(HOME_URL, { waitUntil: "networkidle" });
     await page.waitForTimeout(5000);
 
-    // === 获取所有服务器卡片 ===
-    console.log("🔍 查找所有服务器卡片...");
-    const manageButtons = await page.$$('div.server-card div.server-actions a.btn.btn-primary:has-text("Manage")');
+    // === 调试：查看页面结构 ===
+    console.log("🔍 开始查找服务器卡片...");
+    
+    // 保存页面HTML用于调试
+    await page.screenshot({ path: "dashboard-debug.png", fullPage: true });
+    
+    // 尝试多种选择器
+    const selector1 = await page.$('div.server-card');
+    console.log(`方法1 - 找到 ${selector1.length} 个 server-card`);
+    
+    const selector2 = await page.$('a.btn:has-text("Manage")');
+    console.log(`方法2 - 找到 ${selector2.length} 个 Manage 按钮`);
+    
+    const selector3 = await page.$('a[href*="server"]');
+    console.log(`方法3 - 找到 ${selector3.length} 个包含server的链接`);
+    
+    const selector4 = await page.$('.server-actions a');
+    console.log(`方法4 - 找到 ${selector4.length} 个 server-actions 中的链接`);
+    
+    // 使用最宽松的选择器
+    const manageButtons = await page.$('a.btn:has-text("Manage")');
     const serverCount = manageButtons.length;
-    console.log(`找到 ${serverCount} 个服务器`);
+    console.log(`\n✅ 最终使用: 找到 ${serverCount} 个服务器`);
 
     if (serverCount === 0) {
       console.log("⚠️ 未找到任何服务器");
@@ -61,7 +79,7 @@ const { chromium } = require("playwright");
         await page.goto(HOME_URL, { waitUntil: "networkidle" });
         await page.waitForTimeout(3000);
 
-        const currentManageButtons = await page.$$('div.server-card div.server-actions a.btn.btn-primary:has-text("Manage")');
+        const currentManageButtons = await page.$('a.btn:has-text("Manage")');
         
         if (i >= currentManageButtons.length) {
           console.log(`⚠️ 第 ${i + 1} 个服务器按钮不存在，跳过`);
