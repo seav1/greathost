@@ -1,17 +1,9 @@
-const EMAIL = process.env.GREATHOST_EMAIL;  // 从 GitHub Secrets 读取
-const PASSWORD = process.env.GREATHOST_PASSWORD;  // 从 GitHub Secrets 读取
+const EMAIL = process.env.EMAIL;
+const PASSWORD = process.env.PASSWORD;
 
 const { chromium } = require("playwright");
 
 (async () => {
-  // 检查必需的环境变量
-  if (!EMAIL || !PASSWORD) {
-    console.error("❌ 错误: 缺少必需的环境变量");
-    console.error("请在 GitHub Secrets 中设置:");
-    console.error("  - GREATHOST_EMAIL: GreatHost 账号邮箱");
-    console.error("  - GREATHOST_PASSWORD: GreatHost 账号密码");
-    process.exit(1);
-  }
   const GREATHOST_URL = "https://greathost.es";
   const LOGIN_URL = `${GREATHOST_URL}/login`;
   const HOME_URL = `${GREATHOST_URL}/dashboard`;
