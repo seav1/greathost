@@ -25,8 +25,8 @@ jobs:
 
       - name: Run renew script
         env:
-         EMAIL: ${{ secrets.GREATHOST_EMAIL }}
-         PASSWORD: ${{ secrets.GREATHOST_PASSWORD }}
+         EMAIL: ${{ secrets.EMAIL }}
+         PASSWORD: ${{ secrets.PASSWORD }}
          HEADLESS: 'true'
         run: npm start
 
